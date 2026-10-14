@@ -1,4 +1,4 @@
-package com.happimeal
+package com.example.happimeal
 
 import org.junit.Test
 
