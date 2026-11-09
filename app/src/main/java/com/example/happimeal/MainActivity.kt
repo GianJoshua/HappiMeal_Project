@@ -6,20 +6,28 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.ListView
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import com.google.android.material.navigation.NavigationView
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
@@ -63,6 +71,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var emptyText: TextView
     private lateinit var noIngredientsText: TextView
     private lateinit var chipGroup: ChipGroup
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var pbLoading: ProgressBar
 
     private val labeler by lazy { ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS) }
 
@@ -84,10 +94,67 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        drawerLayout = findViewById(R.id.drawerLayout)
+        // Set up TopAppBar to open drawer
+        val topAppBar = findViewById<MaterialToolbar>(R.id.topAppBar)
+        topAppBar.setNavigationOnClickListener {
+            drawerLayout.openDrawer(GravityCompat.START)
+        }
+
+        val navigationView = findViewById<NavigationView>(R.id.navigationView)
+        val headerView = navigationView.getHeaderView(0)
+        val btnEditProfile = headerView.findViewById<View>(R.id.btnEditProfile)
+
+        btnEditProfile.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.START)
+            startActivity(Intent(this, ProfileActivity::class.java))
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
+
+        navigationView.setNavigationItemSelectedListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.nav_profile -> {
+                    startActivity(Intent(this, ProfileActivity::class.java))
+                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                }
+                R.id.nav_settings -> {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                }
+                R.id.nav_logout -> {
+                    // Log out
+                    startActivity(Intent(this, LoginActivity::class.java))
+                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                    finish()
+                }
+            }
+            drawerLayout.closeDrawer(GravityCompat.START)
+            true
+        }
+
+        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottomNavigationView)
+        bottomNavigationView.setOnItemSelectedListener { menuItem ->
+            spinIcon(menuItem)
+            when (menuItem.itemId) {
+                R.id.bottom_nav_home -> true
+                R.id.bottom_nav_history -> {
+                    // Delay slightly to let the 0.5s spin animation play before cross-fading
+                    bottomNavigationView.postDelayed({
+                        startActivity(Intent(this, HistoryActivity::class.java))
+                        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                    }, 300)
+                    true
+                }
+                else -> false
+            }
+        }
+        bottomNavigationView.setOnItemReselectedListener { spinIcon(it) }
+
         input = findViewById(R.id.etIngredient)
         emptyText = findViewById(R.id.tvEmpty)
         noIngredientsText = findViewById(R.id.tvNoIngredients)
         chipGroup = findViewById(R.id.chipGroup)
+        pbLoading = findViewById(R.id.pbLoading)
         val resultList = findViewById<ListView>(R.id.lvResults)
 
         mealAdapter = MealAdapter(this, matches)
@@ -109,18 +176,28 @@ class MainActivity : AppCompatActivity() {
             ingredients.clear()
             refresh()
         }
+        
+        findViewById<Button>(R.id.btnFindRecipes).setOnClickListener {
+            if (ingredients.isEmpty()) {
+                toast("Please add some ingredients first!")
+            } else {
+                fetchOnlineRecipes()
+            }
+        }
 
         resultList.setOnItemClickListener { _, _, pos, _ ->
             val m = matches[pos]
-            val body = "Ingredients: ${m.recipe.ingredients.joinToString(", ")}\n" +
-                    "You have: ${m.have.joinToString(", ")}\n" +
-                    "Missing: ${if (m.missing.isEmpty()) "nothing!" else m.missing.joinToString(", ")}\n\n" +
-                    m.recipe.steps
-            AlertDialog.Builder(this)
-                .setTitle(m.recipe.name)
-                .setMessage(body)
-                .setPositiveButton("OK", null)
-                .show()
+            HistoryManager.saveToHistory(this@MainActivity, m) // Save to history
+            val intent = Intent(this, RecipeDetailActivity::class.java).apply {
+                putExtra("NAME", m.recipe.name)
+                putExtra("TIME", m.recipe.time)
+                putExtra("DIFFICULTY", m.recipe.difficulty)
+                putStringArrayListExtra("HAVE", ArrayList(m.have))
+                putStringArrayListExtra("MISSING", ArrayList(m.missing))
+                putExtra("STEPS", m.recipe.steps)
+            }
+            startActivity(intent)
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         }
 
         refresh()
@@ -173,6 +250,33 @@ class MainActivity : AppCompatActivity() {
             .addOnFailureListener { toast("Photo analysis failed: ${it.message}") }
     }
 
+    override fun onResume() {
+        super.onResume()
+        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottomNavigationView)
+        bottomNavigationView.selectedItemId = R.id.bottom_nav_home
+        updateNavHeader()
+    }
+
+    private fun updateNavHeader() {
+        val navigationView = findViewById<NavigationView>(R.id.navigationView)
+        val headerView = navigationView.getHeaderView(0)
+        val tvHeaderName = headerView.findViewById<TextView>(R.id.tvHeaderName)
+        val tvHeaderEmail = headerView.findViewById<TextView>(R.id.tvHeaderEmail)
+        val ivAvatar = headerView.findViewById<ImageView>(R.id.ivAvatar)
+
+        val prefs = getSharedPreferences("HappiMealPrefs", MODE_PRIVATE)
+        tvHeaderName.text = prefs.getString("USERNAME", "Guest User")
+        tvHeaderEmail.text = prefs.getString("EMAIL", "guest@example.com")
+
+        val avatarFile = File(filesDir, "avatar.jpg")
+        if (avatarFile.exists()) {
+            ivAvatar.setImageURI(null) // force refresh layout
+            ivAvatar.setImageURI(Uri.fromFile(avatarFile))
+        } else {
+            ivAvatar.setImageResource(R.drawable.ic_account_circle)
+        }
+    }
+
     private fun refresh() {
         // Rebuild ingredient chips
         chipGroup.removeAllViews()
@@ -187,7 +291,7 @@ class MainActivity : AppCompatActivity() {
         }
         noIngredientsText.visibility = if (ingredients.isEmpty()) View.VISIBLE else View.GONE
 
-        // Rebuild meal suggestions
+        // Rebuild meal suggestions using local RecipeRepository
         matches.clear()
         matches.addAll(RecipeRepository.suggest(ingredients))
         mealAdapter.notifyDataSetChanged()
@@ -198,5 +302,39 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun fetchOnlineRecipes() {
+        if (ingredients.isEmpty()) return
+        val queryStr = ingredients.joinToString(", ")
+        pbLoading.visibility = View.VISIBLE
+        RecipeRepository.fetchLlmRecipe(queryStr) { llmRecipes ->
+            runOnUiThread {
+                pbLoading.visibility = View.GONE
+                if (llmRecipes.isNotEmpty()) {
+                    RecipeRepository.updateLlmCache(llmRecipes)
+                    matches.clear()
+                    matches.addAll(RecipeRepository.suggest(ingredients))
+                    mealAdapter.notifyDataSetChanged()
+                    emptyText.text = if (matches.isEmpty()) "No meals found for these ingredients." else ""
+                    toast("✨ Found new recipes!")
+                } else {
+                    toast("No new recipes found online.")
+                }
+            }
+        }
+    }
+
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+
+    private fun spinIcon(item: MenuItem) {
+        val nav = findViewById<BottomNavigationView>(R.id.bottomNavigationView)
+        val itemView = nav.findViewById<ViewGroup>(item.itemId)
+        for (i in 0 until (itemView?.childCount ?: 0)) {
+            val child = itemView?.getChildAt(i)
+            if (child is ImageView) {
+                // Rotate 360 degrees over 0.5 seconds
+                child.animate().rotationBy(360f).setDuration(500).start()
+                break
+            }
+        }
+    }
 }

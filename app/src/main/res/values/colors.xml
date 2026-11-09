@@ -2,4 +2,13 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Theme Colors -->
+    <color name="primary_orange">#D97706</color>
+    <color name="light_orange">#FDE68A</color>
+    <color name="bg_cream">#F9F6F0</color>
+
+    <!-- Text Colors -->
+    <color name="text_dark">#1E293B</color>
+    <color name="text_gray">#64748B</color>
 </resources>

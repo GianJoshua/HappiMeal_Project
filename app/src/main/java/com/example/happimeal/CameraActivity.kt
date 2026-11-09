@@ -33,6 +33,7 @@ class CameraActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this, "Camera permission is needed to take photos", Toast.LENGTH_LONG).show()
                 finish()
+                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             }
         }
 
@@ -41,7 +42,10 @@ class CameraActivity : AppCompatActivity() {
         setContentView(R.layout.activity_camera)
 
         previewView = findViewById(R.id.previewView)
-        findViewById<Button>(R.id.btnClose).setOnClickListener { finish() }
+        findViewById<Button>(R.id.btnClose).setOnClickListener { 
+            finish() 
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
         findViewById<Button>(R.id.btnCapture).setOnClickListener { takePhoto() }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
@@ -70,6 +74,7 @@ class CameraActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Toast.makeText(this, "Could not start camera: ${e.message}", Toast.LENGTH_LONG).show()
                 finish()
+                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             }
         }, ContextCompat.getMainExecutor(this))
     }
@@ -86,6 +91,7 @@ class CameraActivity : AppCompatActivity() {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     setResult(RESULT_OK, Intent().putExtra(EXTRA_PHOTO_PATH, file.absolutePath))
                     finish()
+                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
                 }
 
                 override fun onError(exc: ImageCaptureException) {

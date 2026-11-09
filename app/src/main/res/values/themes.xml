@@ -1,9 +1,30 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.HappiMeal" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    <style name="Base.Theme.HappiMeal" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/primary_orange</item>
+        <item name="colorSecondary">@color/light_orange</item>
+        <item name="colorTertiary">@color/primary_orange</item>
+        <item name="colorPrimaryContainer">@color/light_orange</item>
+        <item name="colorOnPrimaryContainer">@color/black</item>
+        <!-- A soft, semi-transparent orange for the sliding pill animation -->
+        <item name="colorSecondaryContainer">#33D97706</item>
+        <!-- Change the touch ripple color to orange across the app -->
+        <item name="colorControlHighlight">#33D97706</item>
+        <item name="android:windowBackground">@color/white</item>
+        <!-- Button styles -->
+        <item name="materialButtonStyle">@style/Widget.HappiMeal.Button</item>
     </style>
 
     <style name="Theme.HappiMeal" parent="Base.Theme.HappiMeal" />
+
+    <style name="Widget.HappiMeal.Button" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/primary_orange</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="cornerRadius">8dp</item>
+    </style>
+
+    <style name="App.Custom.Indicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <!-- Transparent background for the active tab pill indicator so we just see the icon -->
+        <item name="android:color">@android:color/transparent</item>
+    </style>
 </resources>
